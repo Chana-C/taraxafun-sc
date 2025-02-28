@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract FunStorage is Ownable {
 
+    //מאחסן נתונים על הטוקנים שנוצרו
     struct FunDetails {
         address funAddress;
         address tokenAddress;
@@ -17,6 +18,7 @@ contract FunStorage is Ownable {
         uint256 createdOn;
     }
 
+    //funDetails מערך מסוג אוביקט  
     FunDetails[] public funContracts;
     
     uint256 public funCount;
@@ -31,6 +33,7 @@ contract FunStorage is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
+    //מקבלת נתונים של חוזה של טוקן ובודקת תקינות ומעדכנת ושומרת
     function addFunContract(
         address _funOwner,
         address _funAddress,
@@ -66,38 +69,45 @@ contract FunStorage is Ownable {
         funCount++;
     }
 
+    //מקבל אינדקס ומחזיר את הכתובת של החוזה
     function getFunContract(
         uint256 index
     ) public view returns (FunDetails memory) {
         return funContracts[index];
     }
 
+    //מקבל כתובת ומחזיר את האינדקס
     function getFunContractIndex(
         address _funContract
     ) public view returns (uint256) {
         return funContractToIndex[_funContract];
     }
 
+     // מחזיר את כמות הטוקנים שהופנקו דרך המערכת
     function getTotalContracts() public view returns (uint) {
         return funContracts.length;
     }
 
+    // מקבל כתובת טוקן ומחזיר את הבעלים שלה
     function getFunContractOwner(
         address _funContract
     ) public view returns (address) {
         return funContractToOwner[_funContract];
     }
 
+    // מקבל כתובת ומוסיף שותף שיכול לפרוס את החוזה 
     function addDeployer(address _deployer) public onlyOwner {
         require(!deployer[_deployer], "already added");
         deployer[_deployer] = true;
     }
 
+    //מוחק כתובת 
     function removeDeployer(address _deployer) public onlyOwner {
         require(deployer[_deployer], "not deployer");
         deployer[_deployer] = false;
     }
 
+    // מאפשר לבעל החוזה למשוך את יתרת החוזה במקרה חרום 
     function emergencyWithdraw() public onlyOwner {
         uint256 balance = address(this).balance;
         payable(owner()).transfer(balance);

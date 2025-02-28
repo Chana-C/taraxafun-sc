@@ -109,10 +109,11 @@ contract FunDeployer is Ownable {
             IERC20(funToken).transfer(msg.sender, IERC20(funToken).balanceOf(address(this)));
         }
 
-        emit funCreated(
+//
+        emit funCreated(//הפעלת האירוע
             msg.sender,
-            (funToken),
-            (funToken),
+            (funToken), //כתובת טוקן
+            (funToken), //כתובת חוזה טוקן
             _name,
             _symbol,
             _data,
@@ -122,10 +123,12 @@ contract FunDeployer is Ownable {
         );
     }
 
+    // מחזיר את עמלת המסחר
     function getTradingFeePer() public view returns (uint256) {
         return tradingFeePer;
     }
 
+    //מחזיר: אם אתה שותף, מחזיר את ערך הטוקן. אם לא, מחזיר את שיעור העמלה הכללי
     function getAffiliatePer(address _affiliateAddrs) public view returns (uint256) {
         if (affiliateSpecial[_affiliateAddrs]) {
             return affiliateSpecialPer[_affiliateAddrs];
@@ -134,49 +137,59 @@ contract FunDeployer is Ownable {
         }
     }
 
+    // מחזיר את האחוז שהמפתחים אמורים לקבל 
     function getDevFeePer() public view returns (uint256) {
         return devFeePer;
     }
 
+    //בודק אם הכתובת קיימת במערך
     function getSpecialAffiliateValidity(address _affiliateAddrs) public view returns (bool) {
         return affiliateSpecial[_affiliateAddrs];
     }
 
+    //פונקציה שמשנה את העמלה של השימוש בפלטפורמה- מנהל בלבד  
     function setDeploymentFee(uint256 _newdeploymentFee) public onlyOwner {
         require(_newdeploymentFee > 0, "invalid fee");
         deploymentFee = _newdeploymentFee;
     }
 
+    //משנה את העמלה של המפתחים- מנהל בלבד
     function setDevFeePer(uint256 _newOwnerFee) public onlyOwner {
         require(_newOwnerFee > 0, "invalid fee");
         devFeePer = _newOwnerFee;
     }
 
+     //משנה או מוסיף נתוני משתנה 
     function setSpecialAffiliateData(address _affiliateAddrs, bool _status, uint256 _specialPer) public onlyOwner {
         affiliateSpecial[_affiliateAddrs] = _status;
         affiliateSpecialPer[_affiliateAddrs] = _specialPer;
     }
 
+    //משנה את כמות הטוקנים 
     function setInitReserveTARA(uint256 _newVal) public onlyOwner {
         require(_newVal > 0, "invalid reserve");
         initialReserveTARA = _newVal;
     }
 
+    // משנה את  הנזילות הוירטואלית שאמורה להיות במערכת 
     function setFunPool(address _newfunPool) public onlyOwner {
         require(_newfunPool != address(0), "invalid pool");
         funPool = _newfunPool;
     }
 
+    // משנה את כתובת הארנק שלשם מגיעות העמלות
     function setFeeWallet(address _newFeeWallet) public onlyOwner {
         require(_newFeeWallet != address(0), "invalid wallet");
         feeWallet = _newFeeWallet;
     }
 
+    //משנה את הכתובת של החוזה שמאחסן נתונים
     function setStorageContract(address _newStorageContract) public onlyOwner {
         require(_newStorageContract != address(0), "invalid storage");
         funStorage = _newStorageContract;
     }
 
+    //funEvent משנה את כתובת החוזה 
     function setEventContract(address _newEventContract) public onlyOwner {
         require(_newEventContract != address(0), "invalid event");
         eventTracker = _newEventContract;
@@ -192,11 +205,13 @@ contract FunDeployer is Ownable {
         antiSnipePer = _newAntiSnipePer;
     }
 
+    //משנה עמלת שותפים
     function setAffiliatePer(uint256 _newAffPer) public onlyOwner {
         require(_newAffPer > 0, "invalid affiliate");
         affiliatePer = _newAffPer;
     }
 
+    //royal פונקציה שמפעילה את האירוע 
     function emitRoyal(
         address tokenAddress,
         uint256 liquidityAmount,
