@@ -8,6 +8,8 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {INonfungiblePositionManager} from "@v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import {IFunStorageInterface} from "./interfaces/IFunStorageInterface.sol";
 
+// החוזה מאפשר לנהל את הפוזיציות של ה-LP, לאסוף עמלות (fees) מהן ולחלק את העמלות בין המפתחים ובעל החוזה, תוך שמירה על ניהול מותאם לפוזיציות מסוג ERC721 (NFTs). 
+//בנוסף, החוזה מספק את האפשרות לשנות את שיעור העמלה וכולל גם אפשרות למשיכה חירומית של NFTs.
 contract FunLPManager is Ownable, IERC721Receiver {
 
     struct LPPosition {
@@ -48,6 +50,8 @@ contract FunLPManager is Ownable, IERC721Receiver {
         feePer = _feePer;
     }
 
+    // מאפשר להפקיד פוזיציה חדשה של NFT.
+    // רק ה-funPool מורשה לקרוא לפונקציה זו
     function depositNFTPosition(uint256 _tokenId, address _dev) external {
         require(msg.sender == funPool, "LPManager: Only FunPool can call this function");
 
@@ -65,12 +69,20 @@ contract FunLPManager is Ownable, IERC721Receiver {
         emit PositionDeposited(_tokenId, _dev, block.timestamp);
     }
 
+    // איסוף עמלות
+    // מאשרת שרק המפתח (dev) או בעל החוזה (owner) יכולים לאסוף את העמלות.
+    // משיכה של העמלות נעשית עבור שני סוגי המטבעות (אם יש) והשארת אחוז העמלה עבור בעל החוזה.
     function collectFees(uint256 _tokenId) external {
 
         LPPosition storage lpPosition = tokenIdToLPPosition[_tokenId];
 
-        require(IERC721(positionManager).ownerOf(_tokenId) == address(this), "LPManager: LP Token not owned by LPManager");
-        require((msg.sender == lpPosition.dev) || (msg.sender == owner()), "LPManager: Only Dev or Owner can collect fees");
+        require(IERC721(positionManager).ownerOf(_tokenId) == address(this), "LPManager: LP Token not owned by LPManager"); // בודק האם שייך למנהל של החוזה הנוכחי
+        require((msg.sender == lpPosition.dev) || (msg.sender == owner()), "LPManager: Only Dev or Owner can collect fees"); // בודקת אם מי שמבצע את הפעולה מפתח או בעל החוזה
+
+    //איסוף העמלות
+    // המשתנים amount0 ו-amount1 מייצגים את הכמויות של שני סוגי הטוקנים שמתקבלים בעת איסוף העמלות מתוך הפוזיציה הבלתי ניתנת להחלפה (LP Position).
+    // amount0: מייצג את כמות הטוקן הראשון שנאסף. זה יכול להיות, למשל, ERC-20 טוקן כמו USDC, ETH, או כל טוקן אחר שמוזן לפוזיציה.
+    //amount1: מייצג את כמות הטוקן השני שנאסף, שיכול להיות טוקן אחר (למשל, DAI, WBTC או כל טוקן אחר במערכת).
 
         (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(positionManager).collect(INonfungiblePositionManager.CollectParams({
             tokenId: _tokenId,
@@ -98,6 +110,7 @@ contract FunLPManager is Ownable, IERC721Receiver {
         }
     }
 
+    // פונקציה לקבלת NFT (onERC721Received)
     function onERC721Received(
         address operator,
         address from,
@@ -107,11 +120,13 @@ contract FunLPManager is Ownable, IERC721Receiver {
         return this.onERC721Received.selector;
     }
 
+    //  הגדרת שיעור העמלה
     function setFeePer(uint256 _feePer) external onlyOwner {
         require(_feePer > 0, "LPManager: Fee Per must be greater than 0");
         feePer = _feePer;
     }
 
+    // משיכת NFT במצב חירום
     function emergencyWithdrawERC721(address _token, uint256 _tokenId) external onlyOwner {
         IERC721(_token).transferFrom(address(this), owner(), _tokenId);
     }

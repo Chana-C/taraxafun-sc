@@ -4,16 +4,19 @@ pragma solidity ^0.8.20;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IFunStorageInterface} from "./interfaces/IFunStorageInterface.sol";
 
+// מעקב אחרי אירועים הקשורים לפעילות כלכלית על גבי חוזים חכמים מסוימים, כמו קנייה, מכירה, יצירה ורישום של חוזים
 contract FunEventTracker is Ownable {
 
+    // כתובת החוזה המרכזי המאחסן את הנתונים של כל החוזים הקשורים
     address public funRegistry;
 
-    uint256 public buyEventCount;
-    uint256 public sellEventCount;
+    uint256 public buyEventCount; // מונה אירועי קניה
+    uint256 public sellEventCount; // מונה אירועי מכירה
 
-    mapping(address => bool) public funContractDeployer;
-    mapping(address => uint256) public funContractIndex;
+    mapping(address => bool) public funContractDeployer; // שומרת אילו כתובות מורשות לפרוס חוזים חכמים
+    mapping(address => uint256) public funContractIndex; // שומרת את האינדקס של כל חוזה לפי כתובתו
 
+    // מופעל כאשר מתבצעת רכישה
     event buyCall(
         address indexed buyer,
         address indexed funContract,
@@ -23,6 +26,7 @@ contract FunEventTracker is Ownable {
         uint256 timestamp
     );
 
+    // מופעל כאשר מתבצעת מכירה.
     event sellCall(
         address indexed seller,
         address indexed funContract,
@@ -32,6 +36,7 @@ contract FunEventTracker is Ownable {
         uint256 timestamp
     );
 
+    // מופעל כאשר נוצר חוזה חדש.
     event funCreated(
         address indexed creator,
         address indexed funContract,
@@ -44,6 +49,7 @@ contract FunEventTracker is Ownable {
         uint256 timestamp
     );
 
+    // מופעל כאשר חוזה מסוים נרשם בבורסה (DEX או מערכת מסחר אחרת)
     event listed(
         address indexed user,
         address indexed tokenAddress,
@@ -58,6 +64,7 @@ contract FunEventTracker is Ownable {
         funRegistry = _funStorage;
     }
 
+    // רישום אירוע קנייה
     function buyEvent(
         address _buyer,
         address _funContract,
@@ -82,6 +89,7 @@ contract FunEventTracker is Ownable {
         buyEventCount++;
     }
 
+    // רישום אירוע מכירה
     function sellEvent(
         address _seller,
         address _funContract,
@@ -106,6 +114,7 @@ contract FunEventTracker is Ownable {
         sellEventCount++;
     }
 
+    // צירת חוזה חדש
     function createFunEvent(
         address creator,
         address funContract,
@@ -135,6 +144,7 @@ contract FunEventTracker is Ownable {
         );
     }
 
+    // רישום חוזה למסחר
     function listEvent(
         address user,
         address tokenAddress,
@@ -156,10 +166,12 @@ contract FunEventTracker is Ownable {
         );
     }
 
+    // הוספת מפעיל חוזים
     function addDeployer(address _newDeployer) public onlyOwner {
         funContractDeployer[_newDeployer] = true;
     }
 
+    // הסרת מפעיל חוזים
     function removeDeployer(address _deployer) public onlyOwner {
         funContractDeployer[_deployer] = false;
     }
