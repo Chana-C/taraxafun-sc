@@ -11,17 +11,20 @@ pragma solidity ^0.8.24;
 /// @author Andreas Bigger <andreas@nascent.xyz>
 /// @author Matt Solomon <matt@mattsolomon.dev>
 contract Multicall3 {
+    // מאפשר לבצע קריאות מרובות לחוזים חיצוניים בתוך טרנזקציה אחת
     struct Call {
-        address target;
-        bytes callData;
+        address target; // כתובת החוזה שאליו הקריאה תתבצע.
+        bytes callData; // הנתונים שיש לשלוח לקריאה.
     }
 
+// כמו CALL + מאפשר לכישלון לקריאה מבלי להפיל את כל הטרנזקציה.
     struct Call3 {
         address target;
-        bool allowFailure;
+        bool allowFailure; // מאפשר ליכשלון הקריאה בלי להפיל את הטרנזקציה
         bytes callData;
     }
 
+    // כמו Call3, אבל כולל value – כמות ה-ETH שיש לשלוח עם הקריאה.
     struct Call3Value {
         address target;
         bool allowFailure;
@@ -29,26 +32,31 @@ contract Multicall3 {
         bytes callData;
     }
 
+    // מחזיר את תוצאת הקריאה
     struct Result {
-        bool success;
-        bytes returnData;
+        bool success; // האם הקריאה הצליחה
+        bytes returnData; // הנתונים שהוחזרו מהקריאה
     }
 
     /// @notice Backwards-compatible call aggregation with Multicall
     /// @param calls An array of Call structs
     /// @return blockNumber The block number where the calls were executed
     /// @return returnData An array of bytes containing the responses
+    //מקבלת מערך של Call, מבצעת את כל הקריאות ומחזירה:
+    //blockNumber – מספר הבלוק הנוכחי.
+    //returnData – מערך עם התשובות לכל קריאה.
     function aggregate(Call[] calldata calls) public payable returns (uint256 blockNumber, bytes[] memory returnData) {
-        blockNumber = block.number;
-        uint256 length = calls.length;
-        returnData = new bytes[](length);
-        Call calldata call;
+        blockNumber = block.number; // מספר הבלוק הנוכחי
+        uint256 length = calls.length; // 
+        returnData = new bytes[](length); // מערך עם התשובות לכל קריאה
+        Call calldata call; // 
         for (uint256 i = 0; i < length;) {
-            bool success;
+            bool success; // 
             call = calls[i];
-            (success, returnData[i]) = call.target.call(call.callData);
-            require(success, "Multicall3: call failed");
-            unchecked { ++i; }
+            // שולח קריאה חיצונית (external) לחוזה בכתובת call.target עם הנתונים call.callData.
+            (success, returnData[i]) = call.target.call(call.callData); 
+            require(success, "Multicall3: call failed"); // אם הקריאה נכשלה, הטרנזקציה תיכשל.
+            unchecked { ++i; } // לא יוצר עותק זמני בזיכרון.
         }
     }
 
@@ -57,6 +65,7 @@ contract Multicall3 {
     /// @param requireSuccess If true, require all calls to succeed
     /// @param calls An array of Call structs
     /// @return returnData An array of Result structs
+    //כמו aggregate, אבל מאפשר לכישלונות לקרות אם requireSuccess שווה false
     function tryAggregate(bool requireSuccess, Call[] calldata calls) public payable returns (Result[] memory returnData) {
         uint256 length = calls.length;
         returnData = new Result[](length);
@@ -66,7 +75,7 @@ contract Multicall3 {
             call = calls[i];
             (result.success, result.returnData) = call.target.call(call.callData);
             if (requireSuccess) require(result.success, "Multicall3: call failed");
-            unchecked { ++i; }
+            unchecked { ++i; } // לא יוצר עותק זמני בזיכרון.
         }
     }
 
@@ -76,6 +85,9 @@ contract Multicall3 {
     /// @return blockNumber The block number where the calls were executed
     /// @return blockHash The hash of the block where the calls were executed
     /// @return returnData An array of Result structs
+    // כמו tryAggregate, אבל גם מחזירה את:
+    // blockNumber – מספר הבלוק הנוכחי.
+    // blockHash – ה-Hash של הבלוק.
     function tryBlockAndAggregate(bool requireSuccess, Call[] calldata calls) public payable returns (uint256 blockNumber, bytes32 blockHash, Result[] memory returnData) {
         blockNumber = block.number;
         blockHash = blockhash(block.number);
@@ -88,6 +100,7 @@ contract Multicall3 {
     /// @return blockNumber The block number where the calls were executed
     /// @return blockHash The hash of the block where the calls were executed
     /// @return returnData An array of Result structs
+    //מפעילה tryBlockAndAggregate עם requireSuccess=true.
     function blockAndAggregate(Call[] calldata calls) public payable returns (uint256 blockNumber, bytes32 blockHash, Result[] memory returnData) {
         (blockNumber, blockHash, returnData) = tryBlockAndAggregate(true, calls);
     }
@@ -95,6 +108,7 @@ contract Multicall3 {
     /// @notice Aggregate calls, ensuring each returns success if required
     /// @param calls An array of Call3 structs
     /// @return returnData An array of Result structs
+    // מבצע קריאות Call3, כלומר כאלה שיכולות להיכשל אם allowFailure=false.
     function aggregate3(Call3[] calldata calls) public payable returns (Result[] memory returnData) {
         uint256 length = calls.length;
         returnData = new Result[](length);
@@ -102,7 +116,7 @@ contract Multicall3 {
         for (uint256 i = 0; i < length;) {
             Result memory result = returnData[i];
             calli = calls[i];
-            (result.success, result.returnData) = calli.target.call(calli.callData);
+            (result.success, result.returnData) = calli.target.call(calli.callData); //  קריאה לחוזה עם ה-callData המתאים.
             assembly {
                 // Revert if the call fails and failure is not allowed
                 // `allowFailure := calldataload(add(calli, 0x20))` and `success := mload(result)`

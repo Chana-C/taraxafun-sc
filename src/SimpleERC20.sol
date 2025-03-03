@@ -154,6 +154,8 @@ contract SimpleERC20 is IERC20 {
      * @param spender The address which will spend the funds.
      * @param addedValue The amount of tokens to increase the allowance by.
      */
+
+     // משמשת להגדלת ה-Allowance (הרשאה) של כתובת (spender) להוציא כספים מחשבונו של המשתמש שקורא לפונקציה.
     function increaseAllowance(
         address spender,
         uint256 addedValue
@@ -175,6 +177,7 @@ contract SimpleERC20 is IERC20 {
      * @param spender The address which will spend the funds.
      * @param subtractedValue The amount of tokens to decrease the allowance by.
      */
+    //משמשת להקטנת ה-Allowance (הרשאה) של כתובת (spender) להוציא כספים מחשבונו של המשתמש שקורא לפונקציה.
     function decreaseAllowance(
         address spender,
         uint256 subtractedValue
@@ -182,7 +185,7 @@ contract SimpleERC20 is IERC20 {
         require(spender != address(0));
 
         _allowances[msg.sender][spender] = (_allowances[msg.sender][spender] -
-            subtractedValue);
+            subtractedValue); // יכול להיות Underflow אם לדוגמא יחסר מספר גדול ממספר קטן
         emit Approval(msg.sender, spender, _allowances[msg.sender][spender]);
         return true;
     }
@@ -192,6 +195,9 @@ contract SimpleERC20 is IERC20 {
      * @param account The account whose tokens will be burnt.
      * @param amount The amount that will be burnt.
      */
+    //פונקציה פנימית השורפת (burns) 
+    //אסימונים מחשבון נתון (account)
+    // מסירה אותם ומפחיתה את היצע האסימונים הכולל (_totalSupply).
     function _burn(address account, uint256 amount) internal {
         require(account != address(0));
         require(amount <= _balances[account]);
@@ -201,6 +207,7 @@ contract SimpleERC20 is IERC20 {
         emit Transfer(account, address(0), amount);
     }
 
+    // משמשת להפעלת DEX (זירת מסחר מבוזרת). רק הכתובת initialFrom יכולה לקרוא לפונקציה ולהפעיל את המנגנון.
     function initiateDex() public {
         require(msg.sender == initialFrom, "only fun allowed");
         dexInitiated = true;
