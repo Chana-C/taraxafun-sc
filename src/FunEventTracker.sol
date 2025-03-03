@@ -165,7 +165,6 @@ contract FunEventTracker is Ownable {
             totalVolume
         );
     }
-
     // הוספת מפעיל חוזים
     function addDeployer(address _newDeployer) public onlyOwner {
         funContractDeployer[_newDeployer] = true;
