@@ -16,12 +16,16 @@ import {IWETH} from "./interfaces/IWETH.sol";
 import {IFunToken} from "./interfaces/IFunToken.sol";
 import {IChainlinkAggregator} from "./interfaces/IChainlinkAggregator.sol";
 
-import {INonfungiblePositionManager} from "@v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import {IUniswapV3Factory} from "@v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import {IUniswapV3Pool} from "@v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+// velodrome-finance
+import {IRouter} from "@velodrome/interfaces/IRouter.sol";
+// velodrome-finance
+import {IPoolFactory} from "@velodrome/interfaces/factories/IPoolFactory.sol";
+
+// import {INonfungiblePositionManager} from "@v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+// import {IUniswapV3Factory} from "@v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+// import {IUniswapV3Pool} from "@v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
 import {console} from "forge-std/console.sol";
-
 contract FunPool is Ownable, ReentrancyGuard {
     using FixedPointMathLib for uint256;
 
@@ -52,11 +56,12 @@ contract FunPool is Ownable, ReentrancyGuard {
     // כתובות לחוזים על Uniswap או פלטפורמה דומה
     uint24  public uniswapPoolFee = 10000;
 
-    address public wtara           = 0x5d0Fa4C5668E5809c83c95A7CeF3a9dd7C68d4fE;
-    address public stable          = 0x69D411CbF6dBaD54Bfe36f81d0a39922625bC78c;
-    address public factory         = 0x5EFAc029721023DD6859AFc8300d536a2d6d4c82;
-    address public router          = 0x705d6bcc8aF1732C9Cb480347aF8F62Cbfa3C671; 
-    address public positionManager = 0x1C5A295E9860d127D8A3E7af138Bb945c4377ae7;
+    address public wtara           = 0x5d0Fa4C5668E5809c83c95A7CeF3a9dd7C68d4fE; // כתובת הטוקן שמנהל את החוזים והטוקנים?
+    address public stable          = 0x69D411CbF6dBaD54Bfe36f81d0a39922625bC78c; // כתובת של מטבע יציב
+    // החוזה הזה אחראי על יצירת בריכות נזילות בין אסימונים שונים ומנהל את תהליך יצירתם.
+    address public factory         = 0x5EFAc029721023DD6859AFc8300d536a2d6d4c82; // חוזה יצירת בריכות נזילות
+    address public router          = 0x705d6bcc8aF1732C9Cb480347aF8F62Cbfa3C671; // אחראי על תכנון הנתיב הטוב ביותר להמיר בין אסימונים
+    address public positionManager = 0x1C5A295E9860d127D8A3E7af138Bb945c4377ae7; // אחראי על ניהול הפוזיציות (כמו אוסף אסימונים או הימורים במערכת כלשהי) של המשתמשים.
     address public oracle          = 0xe03e2C41c8c044192b3CE2d7AFe49370551c7f80; // חוזה שמספק נתוני שוק/מחיר
 
     address public implementation;
@@ -73,6 +78,10 @@ contract FunPool is Ownable, ReentrancyGuard {
     mapping(address => FunTokenPool) public tokenPools; // שמירת מידע על כל בריכה לפי כתובת הטוקן.
     /// represents the tick spacing for each fee tier
     mapping(uint24 => int256) public tickSpacing; //  אין שימוש בחוזה זה
+
+    
+    // לבדוק אם הבריכה קבועה
+    bool public stable1 = true;
 
     // נפלט כאשר מוסיפים נזילות לבריכה.
     event LiquidityAdded(address indexed provider, uint256 tokenAmount, uint256 taraAmount);
@@ -338,7 +347,7 @@ contract FunPool is Ownable, ReentrancyGuard {
             IFunToken(_funToken).initiateDex();
             token.pool.reserveTARA -= token.pool.initialReserveTARA;
 
-            _addLiquidityV3(_funToken, IERC20(_funToken).balanceOf(address(this)), token.pool.reserveTARA);
+            _addLiquidityVelodrome(_funToken, IERC20(_funToken).balanceOf(address(this)), token.pool.reserveTARA);
 
             uint256 reserveTARA = token.pool.reserveTARA;
             token.pool.reserveTARA = 0;
@@ -355,83 +364,86 @@ contract FunPool is Ownable, ReentrancyGuard {
         }
     }
 
-    // מבצעת הוספת נזילות (liquidity) לפלטפורמת Uniswap V3 עבור טוקן מסוג _funToken ו-WETH
-    function _addLiquidityV3(address _funToken, uint256 _amountTokenDesired, uint256 _nativeForDex) internal {
+    // מבצעת הוספת נזילות (liquidity) לפלטפורמת velodrom עבור טוקן מסוג _funToken ו-WETH
+    function _addLiquidityVelodrome(address _funToken, uint256 _amountTokenDesired, uint256 _nativeForDex) internal {
         FunTokenPool storage token = tokenPools[_funToken];
 
         // נקבע אילו שני טוקנים ייכנסו לבריכת הנזילות
         //כתובות מהקטן לגדול - בדיקה של גודל כתובות החוזים כדי להתאים לתקן של יוניסוואפ
-        address token0 = _funToken < wtara ? _funToken : wtara;
-        address token1 = _funToken < wtara ? wtara : _funToken;
+        // גם בולדרום
+        address tokenA = _funToken; // = _funToken < wtara ? _funToken : wtara;
+        address tokenB = wtara; // _funToken < wtara ? wtara : _funToken;
 
-        console.log("token0: %s", token0);
-        console.log("token1: %s", token1);
+        // console.log("token0: %s", tokenA);
+        // console.log("token1: %s", tokenB);
 
         uint256 price_numerator;
         uint256 price_denominator;
 
-        if (token0 == wtara) {
-            price_numerator = _amountTokenDesired;
-            price_denominator = _nativeForDex;
-        } else {
-            price_numerator = _nativeForDex;
-            price_denominator = _amountTokenDesired;
-        }
+        // if (tokenA == wtara) {
+        //     price_numerator = _amountTokenDesired;
+        //     price_denominator = _nativeForDex;
+        // } else {
+        //     price_numerator = _nativeForDex;
+        //     price_denominator = _amountTokenDesired;
+        // }
 
-        console.log("price_numerator: %s", price_numerator);
-        console.log("price_denominator: %s", price_denominator);
+        // console.log("price_numerator: %s", price_numerator);
+        // console.log("price_denominator: %s", price_denominator);
 
     // יצירת ואיתחול בריכת נזילות אם לא קיימת
-        if (token.storedLPAddress == address(0)) {
-            INonfungiblePositionManager(positionManager).createAndInitializePoolIfNecessary(
-                token0, token1, uniswapPoolFee, encodePriceSqrtX96(price_numerator, price_denominator)
-            );
-            token.storedLPAddress = IUniswapV3Factory(factory).getPool(token0, token1, uniswapPoolFee);
-            require(token.storedLPAddress != address(0), "Pool creation failed");
-        }
+        // if (token.storedLPAddress == address(0)) {
+        //     // INonfungiblePositionManager(positionManager).createAndInitializePoolIfNecessary(
+        //     //     token0, token1, uniswapPoolFee, encodePriceSqrtX96(price_numerator, price_denominator)
+        //     // );
+        //     IPoolFactory(positionManager).createPool(token0, token1, Fee?);
+        //     token.storedLPAddress = IPoolFactory(factory).getPool(token0, token1, fee?);
+        //     require(token.storedLPAddress != address(0), "Pool creation failed");
+        // }
 
         // אישור המטבעות
-        IWETH(wtara).deposit{value: _nativeForDex}();
+        // IWETH(wtara).deposit{value: _nativeForDex}();
 
-        IERC20(wtara).approve(positionManager, _nativeForDex);
-        IERC20(_funToken).approve(positionManager, _amountTokenDesired);
+         IERC20(wtara).approve(positionManager, _nativeForDex);
+         IERC20(_funToken).approve(positionManager, _amountTokenDesired);
 
-        // תחום זה קובע את המחיר שיחול על המיקום המינתי בבריכה ב-Uniswap V3.
-        // קובע את טווח הנזילות המקסימלי ביוניסוואפ
-        int24 tickLower = -887200;
-        int24 tickUpper = 887200;
+        // // תחום זה קובע את המחיר שיחול על המיקום המינתי בבריכה ב-Uniswap V3.
+        // // קובע את טווח הנזילות המקסימלי ביוניסוואפ
+        // int24 tickLower = -887200;
+        // int24 tickUpper = 887200;
 
         // כמות הטוקנים שצריך להפקיד בכל צד של הבריכה, תלוי באיזה טוקן הוא token0 ו-token1.
-        uint256 amount0Desired = (token0 == _funToken ? _amountTokenDesired : _nativeForDex);
-        uint256 amount1Desired = (token0 == _funToken ? _nativeForDex : _amountTokenDesired);
+        uint256 amountADesired = (tokenA == _funToken ? _amountTokenDesired : _nativeForDex);
+        uint256 amountBDesired = (tokenA == _funToken ? _nativeForDex : _amountTokenDesired);
 
         // הגדרת מינימום שמותר להפקיד בכל צד של הבריכה. במקרה זה, 98% מהסכום שצוין יתקבל.
         // המשתמש לא יפסיד יותר מ2 אחוז מהערך הצפוי - אם תוך כדי העיסקה הערך ירד ביותר משתי אחוז העיסקה לא תתבצע
-        uint256 amount0Min = (amount0Desired * 98) / 100;
-        uint256 amount1Min = (amount1Desired * 98) / 100;
+        uint256 amountAMin = (amountADesired * 98) / 100;
+        uint256 amountBMin = (amountBDesired * 98) / 100;
 
+        IRouter(positionManager).addLiquidity(tokenA, tokenB, stable1, amountADesired, amountBDesired, amountAMin, amountBMin, address(this), block.timestamp + 1);
         // מוגדרים כל הפרמטרים שדורשים יצירה של מיקום בבריכה ב-Uniswap, כולל כמות הטוקנים, fees, ה-ticks, ועוד.
-        INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
-            token0: token0,
-            token1: token1,
-            fee: uniswapPoolFee,
-            tickLower: tickLower,
-            tickUpper: tickUpper,
-            amount0Desired : amount0Desired,
-            amount1Desired : amount1Desired,
-            amount0Min : amount0Min,
-            amount1Min : amount1Min,
-            recipient: address(this),
-            deadline: block.timestamp + 1
-        });
+        // INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
+        //     token0: token0,
+        //     token1: token1,
+        //     fee: uniswapPoolFee,
+        //     tickLower: tickLower,
+        //     tickUpper: tickUpper,
+        //     amount0Desired : amount0Desired,
+        //     amount1Desired : amount1Desired,
+        //     amount0Min : amount0Min,
+        //     amount1Min : amount1Min,
+        //     recipient: address(this),
+        //     deadline: block.timestamp + 1 // מה זה בדיוק?
+        // });
 
     // המערכת מבצעת את פעולת ה-Mint, כלומר יוצרת את ה-NFT שמייצג את המיקום בבריכהד
-        (uint256 tokenId,,,) = INonfungiblePositionManager(positionManager).mint(params);
+        // (uint256 tokenId,,,) = INonfungiblePositionManager(positionManager).mint(params);
     // אישור ה-NFT
-        IERC721(positionManager).approve(LPManager, tokenId);
+        // IERC721(positionManager).approve(LPManager, tokenId);
     // הפקדה של ה-NFT שנוצר עבור המיקום בבריכה אל LPManager.
-        IFunLPManager(LPManager).depositNFTPosition(tokenId, msg.sender);
-    }
+        // IFunLPManager(LPManager).depositNFTPosition(tokenId, msg.sender);
+     }
 
     // המטרה היא לחשב ולהחזיר את שורש המחיר ברמה של דיוק גבוהה
     // חישוב של שורש ריבועי של המחיר
