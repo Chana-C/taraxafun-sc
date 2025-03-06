@@ -54,10 +54,10 @@ contract FunPool is Ownable, ReentrancyGuard {
     //  ערך סטנדרטי למדידת עמלות (10000 = 100%).
     uint256 public constant BASIS_POINTS = 10000;
     // כתובות לחוזים על Uniswap או פלטפורמה דומה
-    uint24  public uniswapPoolFee = 10000;
+    // uint24  public uniswapPoolFee = 10000;
 
     address public wtara           = 0x5d0Fa4C5668E5809c83c95A7CeF3a9dd7C68d4fE; // כתובת הטוקן שמנהל את החוזים והטוקנים?
-    address public stable          = 0x69D411CbF6dBaD54Bfe36f81d0a39922625bC78c; // כתובת של מטבע יציב
+    address public stable          = 0x69D411CbF6dBaD54Bfe36f81d0a39922625bC78c; // כתובת של מטבע יציב?
     // החוזה הזה אחראי על יצירת בריכות נזילות בין אסימונים שונים ומנהל את תהליך יצירתם.
     address public factory         = 0x5EFAc029721023DD6859AFc8300d536a2d6d4c82; // חוזה יצירת בריכות נזילות
     address public router          = 0x705d6bcc8aF1732C9Cb480347aF8F62Cbfa3C671; // אחראי על תכנון הנתיב הטוב ביותר להמיר בין אסימונים
@@ -532,11 +532,11 @@ contract FunPool is Ownable, ReentrancyGuard {
         positionManager = _newPositionManager;
     }
 
-    // קובעת את כתובת מנהל המיקומים 
-    function setUniswapPoolFee(uint24 _newuniswapPoolFee) public onlyOwner {
-        require(_newuniswapPoolFee > 0, "Invalid pool fee");
-        uniswapPoolFee = _newuniswapPoolFee;
-    }
+    // // קובעת את כתובת מנהל המיקומים 
+    // function setUniswapPoolFee(uint24 _newuniswapPoolFee) public onlyOwner {
+    //     require(_newuniswapPoolFee > 0, "Invalid pool fee");
+    //     uniswapPoolFee = _newuniswapPoolFee;
+    // }
 
     // מאפשרת לבעלים של החוזה למשוך טוקנים (ERC-20) מתוך החוזה במקרה חירום. 
     // זה לא משיחת שטיח?
