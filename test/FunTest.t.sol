@@ -25,7 +25,8 @@ contract FunTest is Test {
     address user2;
 
     function setUp() public {
-        uint256 forkId = vm.createFork("https://rpc.mainnet.taraxa.io");
+        // uint256 forkId = vm.createFork("https://rpc.mainnet.taraxa.io");
+        uint256 forkId = vm.createFork("https://1rpc.io/op");
         vm.selectFork(forkId);
 
         owner = vm.addr(1);
@@ -61,7 +62,13 @@ contract FunTest is Test {
         eventTracker.addDeployer(address(pool));
     }
 
+    function test_t() public {
+        console.log("Hellow");
+    }
+
     function test_createToken() public {
+        // שולח איטריום לפונקציה עם הקריאה לה - לדוגמא אם יש עלות ליצירת הטוקן
+        // הפונקציה מוגדרת כ payable ולכן אפשר לשלוח עם הקריאה לה כסף
         deployer.createFun{value: 10000000}(
             "Test", 
             "TT", 
@@ -76,9 +83,36 @@ contract FunTest is Test {
                                                                                 
         uint256 amountOut = pool.getAmountOutTokens(funTokenDetail.funAddress, 300 ether);
 
-        pool.buyTokens{value : 500 ether}(funTokenDetail.funAddress, amountOut, address(0x0));
+        // - שווי הטוקן עכשוי
+        console.log("trade Active?", pool.getFuntokenPool(funTokenDetail.funAddress).pool.tradeActive);
+        console.log("CurrentCap:", pool.getCurrentCap(funTokenDetail.funAddress));
+        // pool.buyTokens{value : 500 ether}(funTokenDetail.funAddress, amountOut, address(0x0));
+       
+        uint256 listThresholdCap = pool.getListThresholdCap(funTokenDetail.funAddress);
+        while (pool.getCurrentCap(funTokenDetail.funAddress) < listThresholdCap) {
+        pool.buyTokens{value : 1000 ether}(funTokenDetail.funAddress, 0, address(0x0));
+        console.log("Updated Market Cap:", pool.getCurrentCap(funTokenDetail.funAddress));
+        }
+        // pool.buyTokens{value : 500 ether}(funTokenDetail.funAddress, amountOut, address(0x0));
 
-        pool.getCurrentCap(funTokenDetail.funAddress);
+        // לקבל שווי שוק כמה הטוקן שווה
+        // pool.getCurrentCap(funTokenDetail.funAddress);
 
+        // שווי שוק = 10000
+        // - שווי הטוקן עכשיו
+        console.log("CurrentCap: ", pool.getCurrentCap(funTokenDetail.funAddress));
+
+        uint currentCap = pool.getCurrentCap(funTokenDetail.funAddress);
+        assertTrue(currentCap >= 500, "500 is more small.");
+
+        // - שווי הטוקן כשהוא עולה לבורסה - הוספה
+        console.log("MarketCap:", pool.getListThresholdCap(funTokenDetail.funAddress));
+    
+        console.log("trade Active?", pool.getFuntokenPool(funTokenDetail.funAddress).pool.tradeActive);
+        
     }
+
+    // function test_t() public {
+    //     console.log("Hellow");
+    // }
 }

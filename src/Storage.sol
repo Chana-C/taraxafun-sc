@@ -7,15 +7,15 @@ contract FunStorage is Ownable {
 
     //מאחסן נתונים על הטוקנים שנוצרו
     struct FunDetails {
-        address funAddress;
-        address tokenAddress;
-        address funOwner;
-        string name;
-        string symbol;
-        string data;
-        uint256 totalSupply;
-        uint256 initialLiquidity;
-        uint256 createdOn;
+        address funAddress; // כתובת החוזה החכם שמנהל את הטוקן
+        address tokenAddress; // כתובת החוזה החכם של האסימון
+        address funOwner; // כתובת היוצר של ה-Fun
+        string name; // שם האסימון
+        string symbol; // סימול האסימון (למשל "ETH")
+        string data; // מידע על הטוקן
+        uint256 totalSupply; // כמות הטוקנים שהונפקו
+        uint256 initialLiquidity; // סכום נזילות ראשוני שהוקצה לטוקן (למשל, כמה ETH או TARA הופקדו בנזילות)
+        uint256 createdOn; // חותמת זמן מתי הטוקן נוצר
     }
 
     //funDetails מערך מסוג אוביקט  

@@ -16,16 +16,15 @@ import {IWETH} from "./interfaces/IWETH.sol";
 import {IFunToken} from "./interfaces/IFunToken.sol";
 import {IChainlinkAggregator} from "./interfaces/IChainlinkAggregator.sol";
 
-// velodrome-finance
+// velodrome
 import {IRouter} from "@velodrome/interfaces/IRouter.sol";
-// velodrome-finance
+// velodrome
 import {IPoolFactory} from "@velodrome/interfaces/factories/IPoolFactory.sol";
 
-// import {INonfungiblePositionManager} from "@v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-// import {IUniswapV3Factory} from "@v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-// import {IUniswapV3Pool} from "@v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-
 import {console} from "forge-std/console.sol";
+
+import {console} from "forge-std/Test.sol";
+
 contract FunPool is Ownable, ReentrancyGuard {
     using FixedPointMathLib for uint256;
 
@@ -41,13 +40,13 @@ contract FunPool is Ownable, ReentrancyGuard {
     }
 
     struct FunTokenPool {
-        address creator; // כתובת היוצר של הבריכה
-        address token;  // כתובת הטוקן המסוים
-        address baseToken; // המטבע הבסיסי (לדוגמה, USDT, ETH וכו')
-        address router; // כתובת ה-Router למסחר (כגון Uniswap)
-        address lockerAddress; // כתובת החוזה לנעילת נזילות
-        address storedLPAddress; // כתובת LP (נזילות)
-        address deployer; // כתובת היוצר שהפעיל את הבריכה
+        address creator; // address of the pool creator
+        address token;  // address of the specific token
+        address baseToken; // base currency (e.g., USDT, ETH, etc.)
+        address router; // address of the trading router (e.g., Uniswap)
+        address lockerAddress; // address of the liquidity locking contract
+        address storedLPAddress; // LP (liquidity) address
+        address deployer; // address of the deployer who launched the pool
         FunTokenPoolData pool;
     }
 
@@ -56,19 +55,17 @@ contract FunPool is Ownable, ReentrancyGuard {
     // כתובות לחוזים על Uniswap או פלטפורמה דומה
     // uint24  public uniswapPoolFee = 10000;
 
-    address public wtara           = 0x5d0Fa4C5668E5809c83c95A7CeF3a9dd7C68d4fE; // כתובת הטוקן שמנהל את החוזים והטוקנים?
-    address public stable          = 0x69D411CbF6dBaD54Bfe36f81d0a39922625bC78c; // כתובת של מטבע יציב?
-    // החוזה הזה אחראי על יצירת בריכות נזילות בין אסימונים שונים ומנהל את תהליך יצירתם.
-    address public factory         = 0x5EFAc029721023DD6859AFc8300d536a2d6d4c82; // חוזה יצירת בריכות נזילות
-    address public router          = 0x705d6bcc8aF1732C9Cb480347aF8F62Cbfa3C671; // אחראי על תכנון הנתיב הטוב ביותר להמיר בין אסימונים
-    address public positionManager = 0x1C5A295E9860d127D8A3E7af138Bb945c4377ae7; // אחראי על ניהול הפוזיציות (כמו אוסף אסימונים או הימורים במערכת כלשהי) של המשתמשים.
-    address public oracle          = 0xe03e2C41c8c044192b3CE2d7AFe49370551c7f80; // חוזה שמספק נתוני שוק/מחיר
+    address public wtara           = 0xD158B0F013230659098e58b66b602dFF8f7ff120; // כתובת הטוקן שמנהל את החוזים והטוקנים?
+    address public stable            = 0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85; // USDC Stablecoin Address
+    address public factory         = 0xF1046053aa5682b4F9a81b5481394DA16BE5FF5a; // חוזה יצירת בריכות נזילות
+    address public router          = 0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858; // אחראי על תכנון הנתיב הטוב ביותר להמיר בין אסימונים
+    address public positionManager = 0xdE1FCfB0851916CA5101820A69b13a4E276bd81F; 
+    address public oracle          = 0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1; // חוזה שמספק נתוני שוק/מחיר
 
     address public implementation;
     address public feeContract;// חוזה שאחראי על גביית עמלות
     address public LPManager; // מנהל נזילות של הבריכה
     address public eventTracker; // חוזה שעוקב אחרי אירועים ועסקאות.
- 
 
     // deployer allowed to create fun tokens
     mapping(address => bool) public allowedDeployers; // מי רשאי להפעיל בריכות נזילות
@@ -80,7 +77,7 @@ contract FunPool is Ownable, ReentrancyGuard {
     mapping(uint24 => int256) public tickSpacing; //  אין שימוש בחוזה זה
 
     
-    // לבדוק אם הבריכה קבועה
+    // Check if the pool is stable
     bool public stable1 = true;
 
     // נפלט כאשר מוסיפים נזילות לבריכה.
@@ -159,6 +156,14 @@ contract FunPool is Ownable, ReentrancyGuard {
         return address(funToken); 
     }
 
+    // פונקציה שהוסיפו
+    function getListThresholdCap(address _funToken) public view returns (uint256) {
+        FunTokenPool storage token = tokenPools[_funToken];
+        //uint256 listThresholdCap = token.pool.listThreshold * (10 ** 10000));
+        uint256 listThresholdCap = token.pool.listThreshold * (10 ** 6);//(10 ** 6);
+        return listThresholdCap;
+    }
+
     // Calculate amount of output tokens based on input TARA
     //מחשבת כמה טוקנים מהמאגר המשתמש יקבל כאשר הוא מזרים כמות מסוימת של TARA.
     function getAmountOutTokens(address _funToken, uint256 _amountIn) public view returns (uint256 amountOut) {
@@ -193,7 +198,9 @@ contract FunPool is Ownable, ReentrancyGuard {
         FunTokenPool storage token = tokenPools[_funToken];
 
         // latestPrice() is in 1e8 format
-        uint256 latestPrice = uint(IChainlinkAggregator(oracle).latestAnswer() / 1e2);
+        //console.log("check");
+        //uint256 latestPrice = uint(IChainlinkAggregator(oracle).latestAnswer() / 1e2);
+        uint256 latestPrice = uint(10000 / 1e2);
 
         uint256 amountMinToken = FixedPointMathLib.mulWadDown(token.pool.reserveTARA, latestPrice);
 
@@ -332,7 +339,8 @@ contract FunPool is Ownable, ReentrancyGuard {
 
         uint256 currentMarketCap = getCurrentCap(_funToken);
 
-        uint256 listThresholdCap = token.pool.listThreshold * (10 ** IERC20Metadata(stable).decimals());
+        // uint256 listThresholdCap = token.pool.listThreshold * (10 ** IERC20Metadata(stable).decimals());
+        uint256 listThresholdCap = token.pool.listThreshold * (10 ** 6);
 
         /// royal emit when marketcap is half of listThresholdCap
         if (currentMarketCap >= (listThresholdCap / 2) && !token.pool.royalemitted) {
@@ -341,9 +349,14 @@ contract FunPool is Ownable, ReentrancyGuard {
             );
             token.pool.royalemitted = true;
         }
+
+        console.log("Inside buyTokens - currentMarketCap:", currentMarketCap);
+        console.log("Inside buyTokens - listThresholdCap:", listThresholdCap);
+
         // using marketcap value of token to check when to add liquidity to DEX
         if (currentMarketCap >= listThresholdCap) {
             token.pool.tradeActive = false;
+            console.log("tradeActive??? ", token.pool.tradeActive);
             IFunToken(_funToken).initiateDex();
             token.pool.reserveTARA -= token.pool.initialReserveTARA;
 
@@ -402,10 +415,22 @@ contract FunPool is Ownable, ReentrancyGuard {
         // }
 
         // אישור המטבעות
-        // IWETH(wtara).deposit{value: _nativeForDex}();
+        console.log("Contract balance before deposit:", address(this).balance);
+        console.log("WETH Address:", wtara);
+        require(address(this).balance >= _nativeForDex, "Not enough ETH for deposit");
+        //IWETH(wtara).deposit{value: _nativeForDex}();
+        console.log("ETH amount sent to deposit:", _nativeForDex);
+        console.log("Contract WETH balance after deposit:", IERC20(wtara).balanceOf(address(this)));
 
-         IERC20(wtara).approve(positionManager, _nativeForDex);
-         IERC20(_funToken).approve(positionManager, _amountTokenDesired);
+
+        console.log("balance", address(this).balance);
+        console.log("check1");
+
+        console.log("Contract WETH balance after deposit:", IERC20(wtara).balanceOf(address(this)));
+        IERC20(wtara).approve(positionManager, _nativeForDex);
+        //IERC20(wtara).approve(positionManager, 0);
+        IERC20(_funToken).approve(positionManager, _amountTokenDesired);
+        console.log("check2");
 
         // // תחום זה קובע את המחיר שיחול על המיקום המינתי בבריכה ב-Uniswap V3.
         // // קובע את טווח הנזילות המקסימלי ביוניסוואפ
@@ -413,15 +438,54 @@ contract FunPool is Ownable, ReentrancyGuard {
         // int24 tickUpper = 887200;
 
         // כמות הטוקנים שצריך להפקיד בכל צד של הבריכה, תלוי באיזה טוקן הוא token0 ו-token1.
-        uint256 amountADesired = (tokenA == _funToken ? _amountTokenDesired : _nativeForDex);
-        uint256 amountBDesired = (tokenA == _funToken ? _nativeForDex : _amountTokenDesired);
+        // uint256 amountADesired = (tokenA == _funToken ? _amountTokenDesired : _nativeForDex);
+        // uint256 amountBDesired = (tokenA == _funToken ? _nativeForDex : _amountTokenDesired);
+
+        uint256 amountADesired = 20;
+        uint256 amountBDesired = 30;
 
         // הגדרת מינימום שמותר להפקיד בכל צד של הבריכה. במקרה זה, 98% מהסכום שצוין יתקבל.
         // המשתמש לא יפסיד יותר מ2 אחוז מהערך הצפוי - אם תוך כדי העיסקה הערך ירד ביותר משתי אחוז העיסקה לא תתבצע
         uint256 amountAMin = (amountADesired * 98) / 100;
         uint256 amountBMin = (amountBDesired * 98) / 100;
 
+        console.log("check 3");
+
+        console.log("TokenA allowance:", IERC20(tokenA).allowance(address(this), positionManager));
+        console.log("TokenB allowance:", IERC20(tokenB).allowance(address(this), positionManager));
+        IERC20(tokenA).approve(positionManager, amountADesired);
+        IERC20(tokenB).approve(positionManager, amountBDesired);     
+
+        console.log("Contract TokenA balance:", IERC20(tokenA).balanceOf(address(this)));
+        console.log("Contract TokenB balance:", IERC20(tokenB).balanceOf(address(this)));  
+
+        console.log("amountADesired:", amountADesired);
+        console.log("amountBDesired:", amountBDesired);
+
+        console.log("adrees(this)", address(this));
+        console.log("block.timestamp + 1:", block.timestamp + 1);
+
+        console.log("amountAMin:", amountAMin);
+        console.log("amountBMin:", amountBMin); 
+
+        console.log("tokenA:", tokenA);
+        console.log("tokenB:", tokenB);
+
+        console.log("stable: ", stable1);
+
+        console.log("amountADesired", amountADesired);
+        console.log("amountBDesired", amountBDesired);
+
+        console.log("pm:", positionManager);
+
+        // address pair = IFactory(router.factory()).getPair(tokenA, tokenB);
+        // console.log("Liquidity Pair:", pair);
+        // console.log("Pair balance of TokenA:", IERC20(tokenA).balanceOf(pair));
+        // console.log("Pair balance of TokenB:", IERC20(tokenB).balanceOf(pair));
+
         IRouter(positionManager).addLiquidity(tokenA, tokenB, stable1, amountADesired, amountBDesired, amountAMin, amountBMin, address(this), block.timestamp + 1);
+        console.log("check 4");
+
         // מוגדרים כל הפרמטרים שדורשים יצירה של מיקום בבריכה ב-Uniswap, כולל כמות הטוקנים, fees, ה-ticks, ועוד.
         // INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
         //     token0: token0,

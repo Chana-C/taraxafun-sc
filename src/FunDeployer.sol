@@ -163,7 +163,7 @@ contract FunDeployer is Ownable {
     function setSpecialAffiliateData(address _affiliateAddrs, bool _status, uint256 _specialPer) public onlyOwner {
         affiliateSpecial[_affiliateAddrs] = _status;
         affiliateSpecialPer[_affiliateAddrs] = _specialPer;
-    }
+    } 
 
     //משנה את כמות הטוקנים 
     function setInitReserveTARA(uint256 _newVal) public onlyOwner {
